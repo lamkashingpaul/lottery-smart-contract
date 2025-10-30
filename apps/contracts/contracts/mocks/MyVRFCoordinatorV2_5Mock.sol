@@ -9,7 +9,7 @@ import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VR
  * @dev This contract extends the VRFCoordinatorV2_5Mock from Chainlink
  * @author Paul Lam
  */
-contract MyVRFCoordinatorV25Mock is VRFCoordinatorV2_5Mock {
+contract MyVRFCoordinatorV2_5Mock is VRFCoordinatorV2_5Mock {
     constructor(
         uint96 _baseFee,
         uint96 _gasPrice,

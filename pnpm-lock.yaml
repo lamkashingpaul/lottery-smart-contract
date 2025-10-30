@@ -26,12 +26,21 @@ importers:
       '@nomicfoundation/hardhat-ignition':
         specifier: ^3.0.7
         version: 3.0.7(@nomicfoundation/hardhat-verify@3.0.9(hardhat@3.1.7))(hardhat@3.1.7)
+      '@nomicfoundation/hardhat-ignition-viem':
+        specifier: ^3.0.7
+        version: 3.0.7(@nomicfoundation/hardhat-ignition@3.0.7(@nomicfoundation/hardhat-verify@3.0.9(hardhat@3.1.7))(hardhat@3.1.7))(@nomicfoundation/hardhat-verify@3.0.9(hardhat@3.1.7))(@nomicfoundation/hardhat-viem@3.0.2(hardhat@3.1.7)(viem@2.45.1(typescript@5.9.3)(zod@3.25.76)))(@nomicfoundation/ignition-core@3.0.7)(hardhat@3.1.7)(viem@2.45.1(typescript@5.9.3)(zod@3.25.76))
       '@nomicfoundation/hardhat-toolbox-viem':
         specifier: ^5.0.2
         version: 5.0.2(2f5a882e6ea8843a61908c4b28705e59)
+      '@nomicfoundation/hardhat-verify':
+        specifier: ^3.0.9
+        version: 3.0.9(hardhat@3.1.7)
       '@types/node':
         specifier: ^25.2.1
         version: 25.2.1
+      dotenv:
+        specifier: ^17.2.4
+        version: 17.2.4
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.14.0
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1801b0541f4fda118a10798fd3486bb7051c5dd6
@@ -1303,6 +1312,10 @@ packages:
   dir-glob@3.0.1:
     resolution: {integrity: sha512-WkrWp9GR4KXfKGYzOLmTuGVi1UWFfws377n9cc55/tb6DuqyF6pcQ5AbiHEshaDpY9v6oaSr2XCDidGmMwdzIA==}
     engines: {node: '>=8'}
+
+  dotenv@17.2.4:
+    resolution: {integrity: sha512-mudtfb4zRB4bVvdj0xRo+e6duH1csJRM8IukBqfTRvHotn9+LBXB8ynAidP9zHqoRC/fsllXgk4kCKlR21fIhw==}
+    engines: {node: '>=12'}
 
   elliptic@6.6.1:
     resolution: {integrity: sha512-RaddvvMatK2LJHqFJ+YA4WysVN5Ita9E35botqIYspQ4TkRAlCicdzKOjlyv/1Za5RyTNn7di//eEV0uTAfe3g==}
@@ -3579,6 +3592,8 @@ snapshots:
   dir-glob@3.0.1:
     dependencies:
       path-type: 4.0.0
+
+  dotenv@17.2.4: {}
 
   elliptic@6.6.1:
     dependencies:

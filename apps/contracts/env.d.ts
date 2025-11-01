@@ -10,7 +10,7 @@ declare global {
 
       SEPOLIA_VRF_COORDINATOR_ADDRESS: `0x${string}`;
       SEPOLIA_RAFFLE_ENTRANCE_FEE: string;
-      SEPOLIA_RAFFLE_GAS_LANE: string;
+      SEPOLIA_RAFFLE_GAS_LANE: `0x${string}`;
       SEPOLIA_RAFFLE_SUBSCRIPTION_ID: string;
       SEPOLIA_RAFFLE_CALLBACK_GAS_LIMIT: string;
       SEPOLIA_RAFFLE_INTERVAL: string;

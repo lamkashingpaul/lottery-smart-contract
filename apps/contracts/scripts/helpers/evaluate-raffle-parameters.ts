@@ -4,7 +4,7 @@ import {
   deployMyVRFCoordinatorV2_5Mock,
   type MyVRFCoordinatorV2_5Mock,
 } from "./deploy-my-vrf-coordinator-v2-5-mock.js";
-import { isDevelopmentChain } from "./deployment-helpers.js";
+import { isDevelopmentChain, zeroGasLane } from "./deployment-helpers.js";
 
 export const evaluateRaffleParameters = async (
   connection: NetworkConnection,
@@ -39,9 +39,9 @@ export const evaluateRaffleParameters = async (
     return {
       vrfCoordinator: myVRFCoordinatorV2_5Mock,
       entranceFee: parseEther("0.01"),
-      gasLane: `0x0000000000000000000000000000000000000000000000000000000000000000`,
+      gasLane: zeroGasLane,
       subscriptionId,
-      callbackGasLimit: BigInt(500000),
+      callbackGasLimit: 500000,
       interval: BigInt(30),
     };
   }
@@ -65,7 +65,7 @@ export const evaluateRaffleParameters = async (
       entranceFee: parseEther(entranceFee),
       gasLane,
       subscriptionId: BigInt(subscriptionId),
-      callbackGasLimit: BigInt(callbackGasLimit),
+      callbackGasLimit: Number(callbackGasLimit),
       interval: BigInt(interval),
     };
   }

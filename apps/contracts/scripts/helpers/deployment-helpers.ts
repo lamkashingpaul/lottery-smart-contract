@@ -1,3 +1,7 @@
+export const zeroAddress = "0x0000000000000000000000000000000000000000";
+
+export const zeroGasLane = `0x0000000000000000000000000000000000000000000000000000000000000000`;
+
 export const developmentChainIds = new Set<number>([
   31337, // Hardhat
   1337, // Localhost

@@ -1,7 +1,11 @@
 import "dotenv/config";
 import hardhatIgnitionViemPlugin from "@nomicfoundation/hardhat-ignition-viem";
+import hardhatNetworkHelpers from "@nomicfoundation/hardhat-network-helpers";
+import hardhatNodeTestRunner from "@nomicfoundation/hardhat-node-test-runner";
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import hardhatVerifyPlugin from "@nomicfoundation/hardhat-verify";
+import hardhatViem from "@nomicfoundation/hardhat-viem";
+import hardhatViemAssertions from "@nomicfoundation/hardhat-viem-assertions";
 import { defineConfig } from "hardhat/config";
 
 const sepoliaRpcUrl = process.env.SEPOLIA_RPC_URL;
@@ -13,6 +17,10 @@ export default defineConfig({
     hardhatToolboxViemPlugin,
     hardhatIgnitionViemPlugin,
     hardhatVerifyPlugin,
+    hardhatViem,
+    hardhatViemAssertions,
+    hardhatNodeTestRunner,
+    hardhatNetworkHelpers,
   ],
   solidity: {
     profiles: {

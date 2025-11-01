@@ -10,7 +10,7 @@ export const deployRaffle = async (
   entranceFee: bigint,
   gasLane: string,
   subscriptionId: bigint,
-  callbackGasLimit: bigint,
+  callbackGasLimit: number,
   interval: bigint,
 ) => {
   const { networkName, networkConfig, ignition, viem } = connection;

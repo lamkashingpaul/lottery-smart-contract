@@ -5,7 +5,7 @@ import type {
   HardhatViemHelpers,
 } from "@nomicfoundation/hardhat-viem/types";
 import hre from "hardhat";
-import { decodeEventLog } from "viem";
+import { decodeEventLog, getAddress, isAddressEqual, parseEther } from "viem";
 import {
   isDevelopmentChain,
   zeroGasLane,
@@ -27,13 +27,23 @@ describe("Raffle", { skip: shouldSkip }, () => {
 
   let viem: HardhatViemHelpers;
   let publicClient: Awaited<ReturnType<HardhatViemHelpers["getPublicClient"]>>;
+  let testClient: Awaited<ReturnType<HardhatViemHelpers["getTestClient"]>>;
   let myVrfCoordinator: Awaited<ContractReturnType<"MyVRFCoordinatorV2_5Mock">>;
   let raffle: Awaited<ContractReturnType<"Raffle">>;
+  type RaffleErrors = Extract<
+    (typeof raffle.abi)[number],
+    { type: "error" }
+  >["name"];
+  type RaffleEvents = Extract<
+    (typeof raffle.abi)[number],
+    { type: "event" }
+  >["name"];
 
   beforeEach(async () => {
     const connection = await hre.network.connect();
     viem = connection.viem;
     publicClient = await viem.getPublicClient();
+    testClient = await viem.getTestClient();
     myVrfCoordinator = await viem.deployContract("MyVRFCoordinatorV2_5Mock", [
       initialBaseFee,
       initialGasPrice,
@@ -51,7 +61,10 @@ describe("Raffle", { skip: shouldSkip }, () => {
       topics: firstEventLog.topics,
     });
     const subscriptionId = decodedLog.args.subId;
-    await myVrfCoordinator.write.fundSubscription([subscriptionId, 100n]);
+    await myVrfCoordinator.write.fundSubscription([
+      subscriptionId,
+      parseEther("100"),
+    ]);
 
     raffle = await viem.deployContract("Raffle", [
       myVrfCoordinator.address,
@@ -71,6 +84,168 @@ describe("Raffle", { skip: shouldSkip }, () => {
       const entranceFee = await raffle.read.getEntranceFee();
       assert.strictEqual(raffleState, 0); // OPEN
       assert.strictEqual(entranceFee, initialEntranceFee);
+    });
+  });
+
+  describe("enterRaffle", () => {
+    it("reverts when not enough ETH is sent", async () => {
+      const errorName: RaffleErrors = "Raffle__NotEnoughETHEntered";
+      await viem.assertions.revertWithCustomError(
+        raffle.write.enterRaffle(),
+        raffle,
+        errorName,
+      );
+    });
+
+    it("reverts when raffle is not open", async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+      await raffle.write.performUpkeep(["0x"]);
+
+      const errorName: RaffleErrors = "Raffle__NotOpen";
+      await viem.assertions.revertWithCustomError(
+        raffle.write.enterRaffle({ value: initialEntranceFee }),
+        raffle,
+        errorName,
+      );
+    });
+
+    it("records player when they enter raffle", async () => {
+      const [playerWallet] = await viem.getWalletClients();
+      await raffle.write.enterRaffle({
+        value: initialEntranceFee,
+        account: playerWallet.account,
+      });
+      const recordedPlayerAddress = await raffle.read.getPlayer([0n]);
+      assert.ok(
+        isAddressEqual(recordedPlayerAddress, playerWallet.account.address),
+      );
+    });
+
+    it("emits RaffleEnter event on entry", async () => {
+      const [playerWallet] = await viem.getWalletClients();
+
+      const eventName: RaffleEvents = "RaffleEntered";
+      await viem.assertions.emitWithArgs(
+        raffle.write.enterRaffle({
+          value: initialEntranceFee,
+          account: playerWallet.account,
+        }),
+        raffle,
+        eventName,
+        [getAddress(playerWallet.account.address)],
+      );
+    });
+  });
+
+  describe("checkUpkeep", () => {
+    it("returns false if raffle is not open", async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+      await raffle.write.performUpkeep(["0x"]);
+
+      const [upkeepNeeded] = await raffle.read.checkUpkeep(["0x"]);
+      assert.strictEqual(upkeepNeeded, false);
+    });
+
+    it("returns false if not enough time has passed", async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) - 5 });
+
+      const [upkeepNeeded] = await raffle.read.checkUpkeep(["0x"]);
+      assert.strictEqual(upkeepNeeded, false);
+    });
+
+    it("returns false if there are no players", async () => {
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+      const [upkeepNeeded] = await raffle.read.checkUpkeep(["0x"]);
+      assert.strictEqual(upkeepNeeded, false);
+    });
+
+    it("return false if not enough balance in the contract", async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+      await testClient.setBalance({ address: raffle.address, value: 0n });
+      const [upkeepNeeded] = await raffle.read.checkUpkeep(["0x"]);
+      assert.strictEqual(upkeepNeeded, false);
+    });
+
+    it("returns true if raffle is open, enough time has passed, there are players, and contract has balance", async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+      await testClient.mine({ blocks: 1 });
+      const [upkeepNeeded] = await raffle.read.checkUpkeep(["0x"]);
+      assert.strictEqual(upkeepNeeded, true);
+    });
+  });
+
+  describe("performUpkeep", () => {
+    it("reverts if upkeep is not needed", async () => {
+      const balance = await publicClient.getBalance({
+        address: raffle.address,
+      });
+      const numberOfPlayers = await raffle.read.getNumberOfPlayers();
+      const raffleState = await raffle.read.getRaffleState();
+
+      const errorName: RaffleErrors = "Raffle__UpkeepNotNeeded";
+      await viem.assertions.revertWithCustomErrorWithArgs(
+        raffle.write.performUpkeep(["0x"]),
+        raffle,
+        errorName,
+        [balance, numberOfPlayers, BigInt(raffleState)],
+      );
+    });
+
+    it("updates the timestamp if upkeep is performed successfully", async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+      const txHash = await raffle.write.performUpkeep(["0x"]);
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      const block = await publicClient.getBlock({
+        blockNumber: txReceipt.blockNumber,
+      });
+      const lastTimeStamp = await raffle.read.getLastTimeStamp();
+      assert.strictEqual(lastTimeStamp, BigInt(block.timestamp));
+    });
+
+    it('updates the raffle state to "calculating" when upkeep is performed successfully', async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+      await raffle.write.performUpkeep(["0x"]);
+      const raffleState = await raffle.read.getRaffleState();
+      assert.strictEqual(raffleState, 1); // CALCULATING
+    });
+
+    it("emits RaffleWinnerRequested event with correct requestId", async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+
+      const expectedRequestId = 1n;
+      const eventName: RaffleEvents = "RaffleWinnerRequested";
+      await viem.assertions.emitWithArgs(
+        raffle.write.performUpkeep(["0x"]),
+        raffle,
+        eventName,
+        [expectedRequestId],
+      );
+    });
+  });
+
+  describe("fulfillRandomWords", () => {
+    beforeEach(async () => {
+      await raffle.write.enterRaffle({ value: initialEntranceFee });
+      await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
+    });
+
+    it("reverts if fulfillRandomWords is called before performUpkeep", async () => {
+      const errorName = "InvalidRequest";
+      await viem.assertions.revertWithCustomError(
+        myVrfCoordinator.write.fulfillRandomWords([1n, raffle.address]),
+        myVrfCoordinator,
+        errorName,
+      );
     });
   });
 });

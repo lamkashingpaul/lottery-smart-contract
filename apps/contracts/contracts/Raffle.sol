@@ -12,7 +12,8 @@ error Raffle__UpkeepNotNeeded(
     uint256 numPlayers,
     uint256 raffleState
 );
-error Raffle__TransferFailed();
+error Raffle__NotWinner();
+error Raffle__WithdrawFailed();
 
 /**
  * @title A sample Raffle contract
@@ -36,6 +37,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
 
     address payable[] private s_players;
 
+    mapping(address => uint256) private s_winnings;
     address private s_recentWinner;
     RaffleState private s_raffleState;
     uint256 private s_lastTimeStamp;
@@ -176,18 +178,36 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         uint256[] calldata randomWords
     ) internal override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
-        address payable recentWinner = s_players[indexOfWinner];
+        address recentWinner = s_players[indexOfWinner];
+        uint256 winning = address(this).balance;
+        s_winnings[recentWinner] += winning;
+
         s_recentWinner = recentWinner;
         s_raffleState = RaffleState.OPEN;
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
 
-        (bool success, ) = recentWinner.call{value: address(this).balance}("");
-        if (!success) {
-            revert Raffle__TransferFailed();
-        }
-
         emit WinnerPicked(recentWinner);
+    }
+
+    /**
+     * @notice Allows the winner to withdraw their winnings
+     * @dev If the transfer fails, the winnings are not reset to 0 and the function reverts
+     */
+    function withdrawWinnings() public {
+        uint256 winning = s_winnings[msg.sender];
+        if (winning == 0) {
+            revert Raffle__NotWinner();
+        }
+        s_winnings[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: winning, gas: 2300}("");
+        if (!success) {
+            revert Raffle__WithdrawFailed();
+        }
+    }
+
+    function getWinning(address player) public view returns (uint256) {
+        return s_winnings[player];
     }
 
     /**

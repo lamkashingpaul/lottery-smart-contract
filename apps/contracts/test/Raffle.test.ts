@@ -89,8 +89,8 @@ describe("Raffle", { skip: shouldSkip }, () => {
       assert.strictEqual(raffleState, 0); // OPEN
       assert.strictEqual(entranceFee, initialEntranceFee);
       assert.strictEqual(raffleInterval, initialInterval);
-      assert.strictEqual(raffleRequestConfirmations, 3); // Default value in Raffle.sol
-      assert.strictEqual(raffleNumberOfWords, 1); // Default value in Raffle.sol
+      assert.strictEqual(raffleRequestConfirmations, 3n); // Default value in Raffle.sol
+      assert.strictEqual(raffleNumberOfWords, 1n); // Default value in Raffle.sol
     });
   });
 
@@ -255,7 +255,7 @@ describe("Raffle", { skip: shouldSkip }, () => {
       );
     });
 
-    it("picks a winner, resets the raffle, and sends the prize money", async () => {
+    it("picks a winner, resets the raffle, and sets winnings correctly", async () => {
       const additionalPlayerWallets = 3;
       const playerWallets = await viem.getWalletClients();
       for (let i = 0; i < additionalPlayerWallets; i++) {
@@ -266,16 +266,12 @@ describe("Raffle", { skip: shouldSkip }, () => {
       }
 
       const startingTimeStamp = await raffle.read.getLastTimeStamp();
-      const winningStartingBalance = await publicClient.getBalance({
-        address: playerWallets[1].account.address,
-      });
-
       const txHash = await raffle.write.performUpkeep(["0x"]);
       const txReceipt = await publicClient.waitForTransactionReceipt({
         hash: txHash,
       });
       const requestedLog = decodeEventLog({
-        abi: [raffle.abi[12]], // RaffleWinnerRequested event
+        abi: [raffle.abi[13]], // RaffleWinnerRequested event
         data: txReceipt.logs[1].data,
         topics: txReceipt.logs[1].topics,
       });
@@ -289,13 +285,15 @@ describe("Raffle", { skip: shouldSkip }, () => {
         [getAddress(playerWallets[1].account.address)],
       );
 
-      const recentWinner = await raffle.read.getRecentWinner();
+      const numberOfPlayers = await raffle.read.getNumberOfPlayers();
       const raffleState = await raffle.read.getRaffleState();
       const endingTimeStamp = await raffle.read.getLastTimeStamp();
-      const numberOfPlayers = await raffle.read.getNumberOfPlayers();
-      const winningEndingBalance = await publicClient.getBalance({
-        address: playerWallets[1].account.address,
-      });
+      const recentWinner = await raffle.read.getRecentWinner();
+      const winning = await raffle.read.getWinning([
+        playerWallets[1].account.address,
+      ]);
+      const expectedPrize =
+        initialEntranceFee * BigInt(additionalPlayerWallets + 1);
 
       assert.strictEqual(numberOfPlayers, 0n, "Players array should be reset");
       assert.strictEqual(Number(raffleState), 0, "Raffle should be OPEN");
@@ -307,13 +305,167 @@ describe("Raffle", { skip: shouldSkip }, () => {
         isAddressEqual(recentWinner, playerWallets[1].account.address),
         "Recent winner should be the expected player",
       );
+      assert.strictEqual(
+        winning,
+        expectedPrize,
+        "Winning amount should be correctly recorded",
+      );
+    });
+
+    it("withdraws winning correctly and updates winnings mapping", async () => {
+      const additionalPlayerWallets = 3;
+      const playerWallets = await viem.getWalletClients();
+      for (let i = 0; i < additionalPlayerWallets; i++) {
+        await raffle.write.enterRaffle({
+          value: initialEntranceFee,
+          account: playerWallets[i + 1].account,
+        });
+      }
+      const txHash = await raffle.write.performUpkeep(["0x"]);
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      const requestedLog = decodeEventLog({
+        abi: [raffle.abi[13]], // RaffleWinnerRequested event
+        data: txReceipt.logs[1].data,
+        topics: txReceipt.logs[1].topics,
+      });
+      const requestId = requestedLog.args.requestId;
+      await myVrfCoordinator.write.fulfillRandomWords([
+        requestId,
+        raffle.address,
+      ]);
+
+      const wallets = await viem.getWalletClients();
+      const winnerWallet = wallets[1];
+      const winningBefore = await raffle.read.getWinning([
+        winnerWallet.account.address,
+      ]);
+      const winnerBalanceBefore = await publicClient.getBalance({
+        address: winnerWallet.account.address,
+      });
+      const withdrawTxHash = await raffle.write.withdrawWinnings({
+        account: winnerWallet.account,
+      });
+      const withdrawTxReceipt = await publicClient.waitForTransactionReceipt({
+        hash: withdrawTxHash,
+      });
+      const gasUsed =
+        withdrawTxReceipt.gasUsed * withdrawTxReceipt.effectiveGasPrice;
+      const winningAfter = await raffle.read.getWinning([
+        winnerWallet.account.address,
+      ]);
+      const winnerBalanceAfter = await publicClient.getBalance({
+        address: winnerWallet.account.address,
+      });
       const expectedPrize =
         initialEntranceFee * BigInt(additionalPlayerWallets + 1);
-      const actualPrize = winningEndingBalance - winningStartingBalance;
+
       assert.strictEqual(
-        actualPrize,
+        winningBefore,
         expectedPrize,
-        `Winner should receive the correct prize amount of ${expectedPrize} wei`,
+        "Winning amount before withdrawal should be correct",
+      );
+      assert.strictEqual(
+        winningAfter,
+        0n,
+        "Winning amount after withdrawal should be zero",
+      );
+      assert.strictEqual(
+        winnerBalanceAfter,
+        winnerBalanceBefore + expectedPrize - gasUsed,
+        "Winner's balance should increase by the winning amount minus gas costs",
+      );
+    });
+
+    it("reverts when non-winner tries to withdraw winnings", async () => {
+      const additionalPlayerWallets = 3;
+      const playerWallets = await viem.getWalletClients();
+      for (let i = 0; i < additionalPlayerWallets; i++) {
+        await raffle.write.enterRaffle({
+          value: initialEntranceFee,
+          account: playerWallets[i + 1].account,
+        });
+      }
+      const txHash = await raffle.write.performUpkeep(["0x"]);
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      const requestedLog = decodeEventLog({
+        abi: [raffle.abi[13]], // RaffleWinnerRequested event
+        data: txReceipt.logs[1].data,
+        topics: txReceipt.logs[1].topics,
+      });
+      const requestId = requestedLog.args.requestId;
+      await myVrfCoordinator.write.fulfillRandomWords([
+        requestId,
+        raffle.address,
+      ]);
+
+      const nonWinnerWallet = playerWallets[2];
+      const errorName: RaffleErrors = "Raffle__NotWinner";
+      await viem.assertions.revertWithCustomError(
+        raffle.write.withdrawWinnings({ account: nonWinnerWallet.account }),
+        raffle,
+        errorName,
+      );
+    });
+
+    it("reverts when winner's withdrawal fails", async () => {
+      const rejectEtherMock = await viem.deployContract("RejectEtherMock", []);
+      await testClient.impersonateAccount({
+        address: rejectEtherMock.address,
+      });
+      await testClient.setBalance({
+        address: rejectEtherMock.address,
+        value: parseEther("2"),
+      });
+      await raffle.write.enterRaffle({
+        value: initialEntranceFee,
+        account: rejectEtherMock.address,
+      });
+      await testClient.stopImpersonatingAccount({
+        address: rejectEtherMock.address,
+      });
+      const additionalPlayerWallets = 2;
+      const playerWallets = await viem.getWalletClients();
+      for (let i = 0; i < additionalPlayerWallets; i++) {
+        await raffle.write.enterRaffle({
+          value: initialEntranceFee,
+          account: playerWallets[i + 1].account,
+        });
+      }
+      const txHash = await raffle.write.performUpkeep(["0x"]);
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      const requestedLog = decodeEventLog({
+        abi: [raffle.abi[13]], // RaffleWinnerRequested event
+        data: txReceipt.logs[1].data,
+        topics: txReceipt.logs[1].topics,
+      });
+      const requestId = requestedLog.args.requestId;
+      await myVrfCoordinator.write.fulfillRandomWords([
+        requestId,
+        raffle.address,
+      ]);
+
+      const errorName: RaffleErrors = "Raffle__WithdrawFailed";
+      await viem.assertions.revertWithCustomError(
+        raffle.write.withdrawWinnings({
+          account: rejectEtherMock.address,
+        }),
+        raffle,
+        errorName,
+      );
+
+      const winningAfter = await raffle.read.getWinning([
+        rejectEtherMock.address,
+      ]);
+      assert.strictEqual(
+        winningAfter,
+        initialEntranceFee * BigInt(additionalPlayerWallets + 2),
+        "Winning amount should remain unchanged after failed withdrawal",
       );
     });
   });

@@ -81,9 +81,16 @@ describe("Raffle", { skip: shouldSkip }, () => {
   describe("constructor", () => {
     it("initializes the raffle with correct parameters", async () => {
       const raffleState = await raffle.read.getRaffleState();
+      const raffleInterval = await raffle.read.getInterval();
+      const raffleRequestConfirmations =
+        await raffle.read.getRequestConfirmations();
+      const raffleNumberOfWords = await raffle.read.getNumWords();
       const entranceFee = await raffle.read.getEntranceFee();
       assert.strictEqual(raffleState, 0); // OPEN
       assert.strictEqual(entranceFee, initialEntranceFee);
+      assert.strictEqual(raffleInterval, initialInterval);
+      assert.strictEqual(raffleRequestConfirmations, 3); // Default value in Raffle.sol
+      assert.strictEqual(raffleNumberOfWords, 1); // Default value in Raffle.sol
     });
   });
 
@@ -245,6 +252,68 @@ describe("Raffle", { skip: shouldSkip }, () => {
         myVrfCoordinator.write.fulfillRandomWords([1n, raffle.address]),
         myVrfCoordinator,
         errorName,
+      );
+    });
+
+    it("picks a winner, resets the raffle, and sends the prize money", async () => {
+      const additionalPlayerWallets = 3;
+      const playerWallets = await viem.getWalletClients();
+      for (let i = 0; i < additionalPlayerWallets; i++) {
+        await raffle.write.enterRaffle({
+          value: initialEntranceFee,
+          account: playerWallets[i + 1].account,
+        });
+      }
+
+      const startingTimeStamp = await raffle.read.getLastTimeStamp();
+      const winningStartingBalance = await publicClient.getBalance({
+        address: playerWallets[1].account.address,
+      });
+
+      const txHash = await raffle.write.performUpkeep(["0x"]);
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      const requestedLog = decodeEventLog({
+        abi: [raffle.abi[12]], // RaffleWinnerRequested event
+        data: txReceipt.logs[1].data,
+        topics: txReceipt.logs[1].topics,
+      });
+      const requestId = requestedLog.args.requestId;
+
+      const eventName: RaffleEvents = "WinnerPicked";
+      await viem.assertions.emitWithArgs(
+        myVrfCoordinator.write.fulfillRandomWords([requestId, raffle.address]),
+        raffle,
+        eventName,
+        [getAddress(playerWallets[1].account.address)],
+      );
+
+      const recentWinner = await raffle.read.getRecentWinner();
+      const raffleState = await raffle.read.getRaffleState();
+      const endingTimeStamp = await raffle.read.getLastTimeStamp();
+      const numberOfPlayers = await raffle.read.getNumberOfPlayers();
+      const winningEndingBalance = await publicClient.getBalance({
+        address: playerWallets[1].account.address,
+      });
+
+      assert.strictEqual(numberOfPlayers, 0n, "Players array should be reset");
+      assert.strictEqual(Number(raffleState), 0, "Raffle should be OPEN");
+      assert.ok(
+        endingTimeStamp > startingTimeStamp,
+        "Timestamp should be updated",
+      );
+      assert.ok(
+        isAddressEqual(recentWinner, playerWallets[1].account.address),
+        "Recent winner should be the expected player",
+      );
+      const expectedPrize =
+        initialEntranceFee * BigInt(additionalPlayerWallets + 1);
+      const actualPrize = winningEndingBalance - winningStartingBalance;
+      assert.strictEqual(
+        actualPrize,
+        expectedPrize,
+        `Winner should receive the correct prize amount of ${expectedPrize} wei`,
       );
     });
   });

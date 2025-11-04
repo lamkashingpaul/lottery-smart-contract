@@ -1,8 +1,8 @@
 import type { NetworkConnection } from "hardhat/types/network";
 import { decodeEventLog, getContract, parseEther } from "viem";
 import {
-  deployMyVRFCoordinatorV2_5Mock,
-  type MyVRFCoordinatorV2_5Mock,
+  deployMyVRFCoordinatorV25Mock,
+  type MyVRFCoordinatorV25Mock,
 } from "./deploy-my-vrf-coordinator-v2-5-mock.js";
 import { isDevelopmentChain, zeroGasLane } from "./deployment-helpers.js";
 
@@ -14,10 +14,10 @@ export const evaluateRaffleParameters = async (
   const publicClient = await viem.getPublicClient();
 
   if (isDevelopmentChain(chainId)) {
-    const myVRFCoordinatorV2_5Mock =
-      await deployMyVRFCoordinatorV2_5Mock(connection);
+    const MyVRFCoordinatorV25Mock =
+      await deployMyVRFCoordinatorV25Mock(connection);
     const transactionHash =
-      await myVRFCoordinatorV2_5Mock.write.createSubscription();
+      await MyVRFCoordinatorV25Mock.write.createSubscription();
     const transactionReceipt = await publicClient.waitForTransactionReceipt({
       hash: transactionHash,
     });
@@ -26,18 +26,18 @@ export const evaluateRaffleParameters = async (
     }
     const firstEventLog = transactionReceipt.logs[0];
     const decodedLog = decodeEventLog({
-      abi: [myVRFCoordinatorV2_5Mock.abi[31]],
+      abi: [MyVRFCoordinatorV25Mock.abi[31]],
       data: firstEventLog.data,
       topics: firstEventLog.topics,
     });
     const subscriptionId = decodedLog.args.subId;
-    await myVRFCoordinatorV2_5Mock.write.fundSubscription([
+    await MyVRFCoordinatorV25Mock.write.fundSubscription([
       subscriptionId,
       parseEther("100"),
     ]);
 
     return {
-      vrfCoordinator: myVRFCoordinatorV2_5Mock,
+      vrfCoordinator: MyVRFCoordinatorV25Mock,
       entranceFee: parseEther("0.01"),
       gasLane: zeroGasLane,
       subscriptionId,
@@ -58,7 +58,7 @@ export const evaluateRaffleParameters = async (
       address: vrfCoordinatorAddress,
       abi: [],
       client: publicClient,
-    }) as unknown as MyVRFCoordinatorV2_5Mock;
+    }) as unknown as MyVRFCoordinatorV25Mock;
 
     return {
       vrfCoordinator,

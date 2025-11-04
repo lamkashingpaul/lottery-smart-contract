@@ -28,7 +28,7 @@ describe("Raffle", { skip: shouldSkip }, () => {
   let viem: HardhatViemHelpers;
   let publicClient: Awaited<ReturnType<HardhatViemHelpers["getPublicClient"]>>;
   let testClient: Awaited<ReturnType<HardhatViemHelpers["getTestClient"]>>;
-  let myVrfCoordinator: Awaited<ContractReturnType<"MyVRFCoordinatorV2_5Mock">>;
+  let myVrfCoordinator: Awaited<ContractReturnType<"MyVRFCoordinatorV25Mock">>;
   let raffle: Awaited<ContractReturnType<"Raffle">>;
   type RaffleErrors = Extract<
     (typeof raffle.abi)[number],
@@ -44,7 +44,7 @@ describe("Raffle", { skip: shouldSkip }, () => {
     viem = connection.viem;
     publicClient = await viem.getPublicClient();
     testClient = await viem.getTestClient();
-    myVrfCoordinator = await viem.deployContract("MyVRFCoordinatorV2_5Mock", [
+    myVrfCoordinator = await viem.deployContract("MyVRFCoordinatorV25Mock", [
       initialBaseFee,
       initialGasPrice,
       initialWeiPerUnitLink,
@@ -310,6 +310,61 @@ describe("Raffle", { skip: shouldSkip }, () => {
         expectedPrize,
         "Winning amount should be correctly recorded",
       );
+    });
+
+    it("emits WinnerPicked event which can be listened to and reacts to it", async () => {
+      const additionalPlayerWallets = 3;
+      const playerWallets = await viem.getWalletClients();
+      for (let i = 0; i < additionalPlayerWallets; i++) {
+        await raffle.write.enterRaffle({
+          value: initialEntranceFee,
+          account: playerWallets[i + 1].account,
+        });
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const eventName: RaffleEvents = "WinnerPicked";
+        const unwatch = publicClient.watchContractEvent({
+          address: raffle.address,
+          abi: raffle.abi,
+          eventName,
+          onLogs: (logs) => {
+            const decodedLog = decodeEventLog({
+              abi: [raffle.abi[14]], // WinnerPicked event
+              data: logs[0].data,
+              topics: logs[0].topics,
+            });
+            const winner = decodedLog.args.winner;
+            assert.ok(
+              isAddressEqual(winner, playerWallets[1].account.address),
+              "Winner picked in event should be the expected player",
+            );
+            unwatch();
+            resolve();
+          },
+          onError: (error) => {
+            unwatch();
+            reject(error);
+          },
+        });
+
+        (async () => {
+          const txHash = await raffle.write.performUpkeep(["0x"]);
+          const txReceipt = await publicClient.waitForTransactionReceipt({
+            hash: txHash,
+          });
+          const requestedLog = decodeEventLog({
+            abi: [raffle.abi[13]], // RaffleWinnerRequested event
+            data: txReceipt.logs[1].data,
+            topics: txReceipt.logs[1].topics,
+          });
+          const requestId = requestedLog.args.requestId;
+          await myVrfCoordinator.write.fulfillRandomWords([
+            requestId,
+            raffle.address,
+          ]);
+        })();
+      });
     });
 
     it("withdraws winning correctly and updates winnings mapping", async () => {

@@ -1,12 +1,12 @@
 import type { NetworkConnection } from "hardhat/types/network";
 import RaffleModule from "../../ignition/modules/Raffle.js";
-import type { MyVRFCoordinatorV2_5Mock } from "./deploy-my-vrf-coordinator-v2-5-mock.js";
+import type { MyVRFCoordinatorV25Mock } from "./deploy-my-vrf-coordinator-v2-5-mock.js";
 import { isDevelopmentChain } from "./deployment-helpers.js";
 import { verifyContractAfterDeployment } from "./verify-contract-after-deployment.js";
 
 export const deployRaffle = async (
   connection: NetworkConnection,
-  vrfCoordinator: MyVRFCoordinatorV2_5Mock,
+  vrfCoordinator: MyVRFCoordinatorV25Mock,
   entranceFee: bigint,
   gasLane: string,
   subscriptionId: bigint,

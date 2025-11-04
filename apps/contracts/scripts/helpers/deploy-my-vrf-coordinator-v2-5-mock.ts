@@ -1,22 +1,22 @@
 import type { NetworkConnection } from "hardhat/types/network";
-import MyVRFCoordinatorV2_5MockModule from "../../ignition/modules/mocks/MyVRFCoordinatorV2_5Mock.js";
+import MyVRFCoordinatorV25MockModule from "../../ignition/modules/mocks/MyVRFCoordinatorV25Mock.js";
 
-export const deployMyVRFCoordinatorV2_5Mock = async (
+export const deployMyVRFCoordinatorV25Mock = async (
   connection: NetworkConnection,
 ) => {
   const { networkName, ignition } = connection;
 
-  console.log(`Deploying MyVRFCoordinatorV2_5Mock on ${networkName} ...`);
-  const { myVRFCoordinatorV2_5Mock } = await ignition.deploy(
-    MyVRFCoordinatorV2_5MockModule,
+  console.log(`Deploying MyVRFCoordinatorV25Mock on ${networkName} ...`);
+  const { MyVRFCoordinatorV25Mock } = await ignition.deploy(
+    MyVRFCoordinatorV25MockModule,
   );
 
-  const address = myVRFCoordinatorV2_5Mock.address;
-  console.log(`MyVRFCoordinatorV2_5Mock deployed at: ${address}`);
+  const address = MyVRFCoordinatorV25Mock.address;
+  console.log(`MyVRFCoordinatorV25Mock deployed at: ${address}`);
 
-  return myVRFCoordinatorV2_5Mock;
+  return MyVRFCoordinatorV25Mock;
 };
 
-export type MyVRFCoordinatorV2_5Mock = Awaited<
-  ReturnType<typeof deployMyVRFCoordinatorV2_5Mock>
+export type MyVRFCoordinatorV25Mock = Awaited<
+  ReturnType<typeof deployMyVRFCoordinatorV25Mock>
 >;

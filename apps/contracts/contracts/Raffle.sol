@@ -206,6 +206,11 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         }
     }
 
+    /**
+     * @notice Get the winnings of a player
+     * @param player The address of the player
+     * @return The winnings of the player in wei
+     */
     function getWinning(address player) public view returns (uint256) {
         return s_winnings[player];
     }

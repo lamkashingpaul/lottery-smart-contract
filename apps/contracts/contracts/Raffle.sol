@@ -136,7 +136,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         }
         s_lastTimeStamp = block.timestamp;
 
-        requestRandomWinner(false);
+        requestRandomWinner(true);
     }
 
     /**

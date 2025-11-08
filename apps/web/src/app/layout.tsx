@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import "@workspace/ui/globals.css";
 import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import { Providers } from "@/features/providers/providers";

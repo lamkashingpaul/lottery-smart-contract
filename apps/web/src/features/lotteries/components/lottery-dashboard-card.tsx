@@ -33,6 +33,7 @@ import { ChainSelectionTabs } from "@/features/common/components/chain-selection
 import { DisconnectedCard } from "@/features/common/components/disconnected-card";
 import { ZERO_ADDRESS } from "@/features/common/constants/zero-address";
 import { useReadRaffleDetails } from "@/features/lotteries/api/use-read-raffle-details";
+import { EnterLotteryButton } from "@/features/lotteries/components/enter-lottery-button";
 import { calculateTimeUntilDraw } from "@/features/lotteries/utils/calculate-time-until-draw";
 import { formatRaffleWinner } from "@/features/lotteries/utils/format-raffle-winner";
 import { formatTimeRemaining } from "@/features/lotteries/utils/format-time-remaining";
@@ -213,16 +214,11 @@ const DashboardContent = ({
         </div>
       </CardContent>
 
-      <CardFooter className="flex flex-col gap-3">
-        <Button className="w-full" size="lg" disabled={!isRaffleOpen}>
-          <Ticket className="size-4" />
-          Enter Raffle for {entranceFeeInEth} ETH
-        </Button>
-        {!isRaffleOpen && (
-          <p className="text-center text-muted-foreground text-xs">
-            The raffle will reopen once the winner is selected
-          </p>
-        )}
+      <CardFooter>
+        <EnterLotteryButton
+          isRaffleOpen={isRaffleOpen}
+          entranceFeeInEth={entranceFeeInEth}
+        />
       </CardFooter>
     </Card>
   );

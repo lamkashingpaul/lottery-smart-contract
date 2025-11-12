@@ -19,9 +19,6 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "suspicious": {
-        "noUnknownAtRules": "off"
-      },
       "nursery": {
         "useSortedClasses": {
           "fix": "safe",

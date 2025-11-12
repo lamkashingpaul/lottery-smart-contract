@@ -40,7 +40,8 @@ export default defineConfig({
   },
   networks: {
     localhost: {
-      type: "edr-simulated",
+      type: "http",
+      url: "http://127.0.0.1:8545",
       chainId: 31337,
     },
     hardhatMainnet: {

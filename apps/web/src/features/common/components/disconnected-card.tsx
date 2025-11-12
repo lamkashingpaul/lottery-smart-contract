@@ -54,7 +54,7 @@ export const DisconnectedCard = () => {
   }, [status, error]);
 
   return (
-    <Card className="w-full">
+    <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>{cardTitle}</CardTitle>
         <CardDescription className={cardDescriptionClassName}>

@@ -33,70 +33,80 @@ export const EnterLotteryButton = (props: EnterLotteryButtonProps) => {
   };
 
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-4">
       <Button
-        className="w-full"
+        className="group relative w-full overflow-hidden border-2 border-primary/50 bg-linear-to-r from-primary via-primary/90 to-accent font-bold text-lg shadow-lg transition-all hover:scale-[1.02] hover:shadow-2xl disabled:hover:scale-100"
         size="lg"
         disabled={!isRaffleOpen || isPending || isConfirming}
         onClick={handleClick}
       >
+        <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
         {isPending || isConfirming ? (
           <>
             <Spinner />
-            {isPending ? "Confirming..." : "Processing..."}
+            {isPending ? "Awaiting Wallet..." : "Processing Transaction..."}
           </>
         ) : (
           <>
-            <Ticket className="size-4" />
-            Enter Raffle
+            <Ticket className="size-5" />🎮 Enter Game Arena
           </>
         )}
       </Button>
 
       {!isRaffleOpen ? (
-        <p className="text-center text-muted-foreground text-xs">
-          The raffle will reopen once the winner is selected
-        </p>
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-center">
+          <p className="font-medium text-amber-200 text-sm">
+            ⚠️ Arena Temporarily Closed
+          </p>
+          <p className="text-muted-foreground text-xs">
+            We're selecting the champion. Check back in a moment!
+          </p>
+        </div>
       ) : null}
 
       {isPending ? (
-        <Alert>
-          <Clock />
-          <AlertTitle>Awaiting Confirmation</AlertTitle>
-          <AlertDescription>
-            Please confirm the transaction in your wallet to enter the raffle.
+        <Alert className="border-2 border-accent/50 bg-accent/10">
+          <Clock className="text-accent" />
+          <AlertTitle className="text-accent">
+            ⏳ Wallet Confirmation Required
+          </AlertTitle>
+          <AlertDescription className="text-accent-foreground/80">
+            Check your wallet and approve the transaction to join the game
+            arena.
           </AlertDescription>
         </Alert>
       ) : null}
 
       {isConfirming && hash ? (
-        <Alert>
-          <Spinner />
-          <AlertTitle>Transaction Submitted</AlertTitle>
-          <AlertDescription>
-            Your transaction is being confirmed on the blockchain. This may take
-            a few moments.
+        <Alert className="border-2 border-primary/50 bg-primary/10">
+          <Spinner className="text-primary" />
+          <AlertTitle className="text-primary">
+            ⚡ Transaction Mining
+          </AlertTitle>
+          <AlertDescription className="text-primary-foreground/80">
+            Your entry is being processed on the blockchain. Hang tight,
+            champion!
           </AlertDescription>
         </Alert>
       ) : null}
 
       {isConfirmed ? (
-        <Alert>
-          <CheckCircle2 />
-          <AlertTitle>Success!</AlertTitle>
-          <AlertDescription>
-            You have successfully entered the raffle. Good luck!
+        <Alert className="animate-pulse border-2 border-green-500/50 bg-green-500/10">
+          <CheckCircle2 className="text-green-400" />
+          <AlertTitle className="text-green-400">
+            🎉 Victory Position Secured!
+          </AlertTitle>
+          <AlertDescription className="text-green-300/80">
+            You're in the game! May fortune smile upon you, warrior.
           </AlertDescription>
         </Alert>
       ) : null}
 
       {error ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="border-2">
           <AlertCircle />
-          <AlertTitle>Transaction Failed</AlertTitle>
-          <AlertDescription>
-            {formatRaffleErrorMessage(error)}
-          </AlertDescription>
+          <AlertTitle>❌ Transaction Failed</AlertTitle>
+          <AlertDescription>{formatRaffleErrorMessage(error)}</AlertDescription>
         </Alert>
       ) : null}
     </div>

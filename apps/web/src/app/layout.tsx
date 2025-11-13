@@ -17,8 +17,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lottery DApp",
-  description: "A decentralized lottery application built on Ethereum.",
+  title: "CryptoLotto | GameFi Lottery Platform",
+  description:
+    "Enter the ultimate decentralized lottery game. Win big on the blockchain with fair, transparent, and secure prize draws.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg", type: "image/svg+xml", sizes: "512x512" },
+    ],
+  },
 };
 
 export default async function RootLayout({
@@ -32,7 +40,7 @@ export default async function RootLayout({
   );
 
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

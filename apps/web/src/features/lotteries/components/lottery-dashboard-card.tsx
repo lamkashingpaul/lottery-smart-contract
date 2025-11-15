@@ -35,9 +35,9 @@ import { ChainSelectionTabs } from "@/features/common/components/chain-selection
 import { DisconnectedCard } from "@/features/common/components/disconnected-card";
 import { useReadRaffleDetails } from "@/features/lotteries/api/use-read-raffle-details";
 import { EnterLotteryButton } from "@/features/lotteries/components/enter-lottery-button";
-import { calculateTimeUntilDraw } from "@/features/lotteries/utils/calculate-time-until-draw";
+import { useLiveDrawCountdown } from "@/features/lotteries/hooks/use-live-draw-countdown";
+import { useLiveLastUpdated } from "@/features/lotteries/hooks/use-live-last-updated";
 import { formatRaffleWinner } from "@/features/lotteries/utils/format-raffle-winner";
-import { formatTimeRemaining } from "@/features/lotteries/utils/format-time-remaining";
 
 type DashboardContentProps = {
   entranceFeeInEth: number;
@@ -46,6 +46,8 @@ type DashboardContentProps = {
   numberOfPlayers: bigint;
   lastTimeStamp: bigint;
   interval: bigint;
+  refetch: () => void;
+  dataUpdatedAt: number;
 };
 
 type ErrorStateProps = {
@@ -61,7 +63,8 @@ type StatCardProps = {
 
 export const LotteryDashboardCard = () => {
   const { isConnected } = useConnection();
-  const { data, isLoading, isError, error, isEnabled } = useReadRaffleDetails();
+  const { data, isLoading, isError, error, isEnabled, refetch, dataUpdatedAt } =
+    useReadRaffleDetails();
 
   if (!isConnected) {
     return <DisconnectedCard />;
@@ -98,6 +101,8 @@ export const LotteryDashboardCard = () => {
       numberOfPlayers={numberOfPlayers}
       lastTimeStamp={lastTimeStamp}
       interval={interval}
+      refetch={refetch}
+      dataUpdatedAt={dataUpdatedAt}
     />
   );
 };
@@ -182,8 +187,11 @@ const DashboardContent = (props: DashboardContentProps) => {
     numberOfPlayers,
     lastTimeStamp,
     interval,
+    refetch,
+    dataUpdatedAt,
   } = props;
-  const timeUntilDraw = calculateTimeUntilDraw(lastTimeStamp, interval);
+  const drawCountdown = useLiveDrawCountdown(lastTimeStamp, interval);
+  const lastUpdatedText = useLiveLastUpdated(dataUpdatedAt);
 
   return (
     <Card className="relative w-full overflow-hidden border-2 border-primary/20 bg-card shadow-2xl">
@@ -191,7 +199,7 @@ const DashboardContent = (props: DashboardContentProps) => {
 
       <CardHeader className="relative space-y-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
+          <div className="flex-1 space-y-2">
             <CardTitle className="flex items-center gap-2 font-bold text-2xl">
               <Trophy className="size-6 text-primary" />
               <span className="text-gradient-gamefi">Lottery Arena</span>
@@ -202,33 +210,48 @@ const DashboardContent = (props: DashboardContentProps) => {
                 : "⏳ Calculating champion... Stand by!"}
             </CardDescription>
           </div>
-          <Badge
-            variant={isRaffleOpen ? "default" : "secondary"}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-sm",
-              isRaffleOpen && "glow-border-primary animate-pulse",
-            )}
-          >
-            <span className="relative flex size-2">
-              {isRaffleOpen && (
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary-foreground opacity-75"></span>
+          <div className="flex flex-col items-end gap-2">
+            <Badge
+              variant={isRaffleOpen ? "default" : "secondary"}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 text-sm",
+                isRaffleOpen && "glow-border-primary animate-pulse",
               )}
-              <span
-                className={cn(
-                  "relative inline-flex size-2 rounded-full",
-                  isRaffleOpen
-                    ? "bg-primary-foreground"
-                    : "bg-secondary-foreground",
+            >
+              <span className="relative flex size-2">
+                {isRaffleOpen && (
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary-foreground opacity-75"></span>
                 )}
-              ></span>
-            </span>
-            {isRaffleOpen ? "LIVE" : "DRAWING"}
-          </Badge>
+                <span
+                  className={cn(
+                    "relative inline-flex size-2 rounded-full",
+                    isRaffleOpen
+                      ? "bg-primary-foreground"
+                      : "bg-secondary-foreground",
+                  )}
+                ></span>
+              </span>
+              {isRaffleOpen ? "LIVE" : "DRAWING"}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refetch()}
+              className="h-8 gap-1.5 rounded-lg px-2 hover:bg-primary/10"
+            >
+              <RefreshCcw className="size-3.5" />
+              <span className="text-xs">Refresh</span>
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <Clock className="size-3" />
+          <span>Last updated: {lastUpdatedText}</span>
         </div>
       </CardHeader>
 
       <CardContent className="relative space-y-6">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <StatCard
             icon={<Coins className="size-4" />}
             label="Entry Fee"
@@ -250,7 +273,7 @@ const DashboardContent = (props: DashboardContentProps) => {
           <StatCard
             icon={<Clock className="size-4" />}
             label="Draw Countdown"
-            value={formatTimeRemaining(timeUntilDraw)}
+            value={drawCountdown}
             variant="default"
           />
         </div>

@@ -155,10 +155,14 @@ describe("Raffle", { skip: shouldSkip }, () => {
       assert.strictEqual(upkeepNeeded, false);
     });
 
-    it("returns false if not enough time has passed", async () => {
+    it("returns false if not enough time has passed and there is recent winner", async () => {
       await raffle.write.enterRaffle({ value: initialEntranceFee });
       await testClient.increaseTime({ seconds: Number(initialInterval) - 5 });
-
+      await testClient.setStorageAt({
+        address: raffle.address,
+        index: "0x6",
+        value: `0x0000000000000000000000000000000000000000000000000000000000001234`,
+      });
       const [upkeepNeeded] = await raffle.read.checkUpkeep(["0x"]);
       assert.strictEqual(upkeepNeeded, false);
     });
@@ -169,10 +173,14 @@ describe("Raffle", { skip: shouldSkip }, () => {
       assert.strictEqual(upkeepNeeded, false);
     });
 
-    it("return false if not enough balance in the contract", async () => {
+    it("return false if not enough prize pool balance", async () => {
       await raffle.write.enterRaffle({ value: initialEntranceFee });
       await testClient.increaseTime({ seconds: Number(initialInterval) + 1 });
-      await testClient.setBalance({ address: raffle.address, value: 0n });
+      await testClient.setStorageAt({
+        address: raffle.address,
+        index: "0x4",
+        value: `0x0000000000000000000000000000000000000000000000000000000000000000`,
+      });
       const [upkeepNeeded] = await raffle.read.checkUpkeep(["0x"]);
       assert.strictEqual(upkeepNeeded, false);
     });
@@ -187,10 +195,8 @@ describe("Raffle", { skip: shouldSkip }, () => {
   });
 
   describe("performUpkeep", () => {
-    it("reverts if upkeep is not needed", async () => {
-      const balance = await publicClient.getBalance({
-        address: raffle.address,
-      });
+    it("reverts with correct parameters if upkeep is not needed", async () => {
+      const prizePool = await raffle.read.getPrizePool();
       const numberOfPlayers = await raffle.read.getNumberOfPlayers();
       const raffleState = await raffle.read.getRaffleState();
 
@@ -199,7 +205,7 @@ describe("Raffle", { skip: shouldSkip }, () => {
         raffle.write.performUpkeep(["0x"]),
         raffle,
         errorName,
-        [balance, numberOfPlayers, BigInt(raffleState)],
+        [prizePool, numberOfPlayers, BigInt(raffleState)],
       );
     });
 
@@ -376,6 +382,8 @@ describe("Raffle", { skip: shouldSkip }, () => {
           account: playerWallets[i + 1].account,
         });
       }
+      const prizePoolBefore = await raffle.read.getPrizePool();
+
       const txHash = await raffle.write.performUpkeep(["0x"]);
       const txReceipt = await publicClient.waitForTransactionReceipt({
         hash: txHash,
@@ -405,6 +413,8 @@ describe("Raffle", { skip: shouldSkip }, () => {
       const withdrawTxReceipt = await publicClient.waitForTransactionReceipt({
         hash: withdrawTxHash,
       });
+
+      const prizePoolAfter = await raffle.read.getPrizePool();
       const gasUsed =
         withdrawTxReceipt.gasUsed * withdrawTxReceipt.effectiveGasPrice;
       const winningAfter = await raffle.read.getWinning([
@@ -416,6 +426,11 @@ describe("Raffle", { skip: shouldSkip }, () => {
       const expectedPrize =
         initialEntranceFee * BigInt(additionalPlayerWallets + 1);
 
+      assert.strictEqual(
+        prizePoolAfter,
+        prizePoolBefore - expectedPrize,
+        "Prize pool should decrease by the winning amount",
+      );
       assert.strictEqual(
         winningBefore,
         expectedPrize,
@@ -461,6 +476,43 @@ describe("Raffle", { skip: shouldSkip }, () => {
       const errorName: RaffleErrors = "Raffle__NotWinner";
       await viem.assertions.revertWithCustomError(
         raffle.write.withdrawWinnings({ account: nonWinnerWallet.account }),
+        raffle,
+        errorName,
+      );
+    });
+
+    it("reverts when winner's winning is greater than contract balance", async () => {
+      const additionalPlayerWallets = 3;
+      const playerWallets = await viem.getWalletClients();
+      for (let i = 0; i < additionalPlayerWallets; i++) {
+        await raffle.write.enterRaffle({
+          value: initialEntranceFee,
+          account: playerWallets[i + 1].account,
+        });
+      }
+      const txHash = await raffle.write.performUpkeep(["0x"]);
+      const txReceipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+      const requestedLog = decodeEventLog({
+        abi: [raffle.abi[13]], // RaffleWinnerRequested event
+        data: txReceipt.logs[1].data,
+        topics: txReceipt.logs[1].topics,
+      });
+      const requestId = requestedLog.args.requestId;
+      await myVrfCoordinator.write.fulfillRandomWords([
+        requestId,
+        raffle.address,
+      ]);
+
+      const winnerWallet = playerWallets[1];
+      await testClient.setBalance({
+        address: raffle.address,
+        value: 0n,
+      });
+      const errorName: RaffleErrors = "Raffle__WithdrawFailed";
+      await viem.assertions.revertWithCustomError(
+        raffle.write.withdrawWinnings({ account: winnerWallet.account }),
         raffle,
         errorName,
       );

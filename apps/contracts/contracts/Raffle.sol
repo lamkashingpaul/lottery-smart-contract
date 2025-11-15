@@ -36,6 +36,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     uint32 private constant NUM_WORDS = 1;
 
     address payable[] private s_players;
+    uint256 private s_prizePool;
 
     mapping(address => uint256) private s_winnings;
     address private s_recentWinner;
@@ -89,6 +90,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
             revert Raffle__NotOpen();
         }
         s_players.push(payable(msg.sender));
+        s_prizePool += msg.value;
         emit RaffleEntered(msg.sender);
     }
 
@@ -112,11 +114,16 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         returns (bool upkeepNeeded, bytes memory performData)
     {
         bool isOpen = s_raffleState == RaffleState.OPEN;
+        bool hasNoRecentWinner = s_recentWinner == address(0);
         bool timePassed = (block.timestamp - s_lastTimeStamp) > I_INTERVAL;
         bool hasPlayers = s_players.length > 0;
-        bool hasBalance = address(this).balance > 0;
+        bool hasPrizePool = s_prizePool > 0;
 
-        upkeepNeeded = isOpen && timePassed && hasPlayers && hasBalance;
+        upkeepNeeded =
+            isOpen &&
+            hasPlayers &&
+            hasPrizePool &&
+            (hasNoRecentWinner || timePassed);
         performData = "0x";
     }
 
@@ -129,7 +136,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         (bool upkeepNeeded, ) = this.checkUpkeep("");
         if (!upkeepNeeded) {
             revert Raffle__UpkeepNotNeeded(
-                address(this).balance,
+                s_prizePool,
                 s_players.length,
                 uint256(s_raffleState)
             );
@@ -179,7 +186,8 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     ) internal override {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address recentWinner = s_players[indexOfWinner];
-        uint256 winning = address(this).balance;
+        uint256 winning = s_prizePool;
+        s_prizePool = 0;
         s_winnings[recentWinner] += winning;
 
         s_recentWinner = recentWinner;
@@ -198,6 +206,9 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         uint256 winning = s_winnings[msg.sender];
         if (winning == 0) {
             revert Raffle__NotWinner();
+        }
+        if (winning > address(this).balance) {
+            revert Raffle__WithdrawFailed();
         }
         s_winnings[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: winning, gas: 2300}("");
@@ -221,6 +232,14 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
      */
     function getEntranceFee() public view returns (uint256) {
         return I_ENTRANCE_FEE;
+    }
+
+    /**
+     * @notice Get the current prize pool of the raffle
+     * @return The prize pool in wei
+     */
+    function getPrizePool() public view returns (uint256) {
+        return s_prizePool;
     }
 
     /**

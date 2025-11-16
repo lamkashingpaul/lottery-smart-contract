@@ -4,6 +4,6 @@ export const calculateTimeUntilDraw = (
 ): number => {
   const nextDrawTime = Number(lastTimeStamp) + Number(interval);
   const now = Math.floor(Date.now() / 1000);
-  const timeUntilDraw = nextDrawTime > now ? nextDrawTime - now : 0;
+  const timeUntilDraw = Math.max(0, nextDrawTime - now);
   return timeUntilDraw;
 };

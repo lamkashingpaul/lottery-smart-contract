@@ -5,6 +5,7 @@ import type { HTMLProps, ReactNode } from "react";
 import { useConnection } from "wagmi";
 import { ConnectedCard } from "@/features/common/components/connected-card";
 import { DisconnectedCard } from "@/features/common/components/disconnected-card";
+import { ClaimPrizeDialog } from "@/features/lotteries/components/claim-prize-dialog";
 import { LotteryDashboardCard } from "@/features/lotteries/components/lottery-dashboard-card";
 
 type LotterySectionWrapperProps = {
@@ -26,6 +27,9 @@ export const LotterySection = () => {
   return (
     <LotterySectionWrapper className="justify-start">
       <ConnectedCard />
+      <div className="flex w-full flex-col items-center gap-4 sm:flex-row sm:justify-center">
+        <ClaimPrizeDialog />
+      </div>
       <LotteryDashboardCard />
     </LotterySectionWrapper>
   );

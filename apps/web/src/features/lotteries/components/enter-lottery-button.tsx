@@ -6,8 +6,10 @@ import {
 import { Button } from "@workspace/ui/components/button";
 import { Spinner } from "@workspace/ui/components/spinner";
 import { AlertCircle, CheckCircle2, Clock, Ticket } from "lucide-react";
+import { useEffect } from "react";
 import { useWaitForTransactionReceipt } from "wagmi";
 import { useEnterRaffle } from "@/features/lotteries/api/use-enter-raffle";
+import { useReadRaffleDetails } from "@/features/lotteries/api/use-read-raffle-details";
 import { formatRaffleErrorMessage } from "@/features/lotteries/utils/format-raffle-error-message";
 
 type EnterLotteryButtonProps = {
@@ -16,6 +18,7 @@ type EnterLotteryButtonProps = {
 
 export const EnterLotteryButton = (props: EnterLotteryButtonProps) => {
   const { isRaffleOpen } = props;
+  const { refetch } = useReadRaffleDetails();
   const {
     w: { data: hash, error, isPending },
     enterRaffle,
@@ -31,6 +34,12 @@ export const EnterLotteryButton = (props: EnterLotteryButtonProps) => {
       console.error("Failed to enter the raffle:", err);
     }
   };
+
+  useEffect(() => {
+    if (isConfirmed) {
+      refetch();
+    }
+  }, [isConfirmed, refetch]);
 
   return (
     <div className="w-full space-y-4">

@@ -12,7 +12,6 @@ export const useLiveDrawCountdown = (
   });
 
   useEffect(() => {
-    // Update immediately when dependencies change
     const updateCountdown = () => {
       const timeUntilDraw = calculateTimeUntilDraw(lastTimeStamp, interval);
       setFormattedTime(formatTimeRemainingWithDays(timeUntilDraw));
@@ -20,7 +19,6 @@ export const useLiveDrawCountdown = (
 
     updateCountdown();
 
-    // Update every second to keep the countdown accurate
     const intervalId = setInterval(() => {
       updateCountdown();
     }, 1000);

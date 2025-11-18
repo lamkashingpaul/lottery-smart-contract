@@ -6,11 +6,13 @@
     "dev": "turbo run dev",
     "format-and-lint": "biome check . && turbo run format-and-lint",
     "format-and-lint:fix": "biome check . --write && turbo run format-and-lint:fix",
-    "check-types": "turbo run check-types"
+    "check-types": "turbo run check-types",
+    "prepare": "node .husky/install.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
     "turbo": "^2.8.12",
+    "husky": "^9.1.7",
     "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@10.30.3",

@@ -18,12 +18,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "CryptoLotto | GameFi Lottery Platform",
-  description:
-    "Enter the ultimate decentralized lottery game. Win big on the blockchain with fair, transparent, and secure prize draws.",
+  description: `Enter the ultimate decentralized lottery game. Win big on the blockchain with fair, transparent, and secure prize draws.`,
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/icon.svg", type: "image/svg+xml", sizes: "512x512" },
     ],
   },

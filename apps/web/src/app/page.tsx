@@ -1,3 +1,4 @@
+import { MainFooter } from "@/features/common/components/main-footer";
 import { MainHeader } from "@/features/common/components/main-header";
 import { LotterySection } from "@/features/lotteries/components/lottery-section";
 
@@ -15,6 +16,7 @@ export default function Home() {
           <LotterySection />
         </div>
       </main>
+      <MainFooter />
     </div>
   );
 }
